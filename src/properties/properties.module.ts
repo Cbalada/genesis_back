@@ -5,9 +5,13 @@ import { PropertyImage } from './entities/property-image.entity';
 import { PropertiesRepository } from './repositories/properties.repository';
 import { PropertiesService } from './properties.service';
 import { PropertiesController } from './properties.controller';
+import { UploadModule } from '../upload/upload.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Property, PropertyImage])],
+  imports: [
+    TypeOrmModule.forFeature([Property, PropertyImage]),
+    UploadModule,
+  ],
   controllers: [PropertiesController],
   providers: [PropertiesRepository, PropertiesService],
   exports: [PropertiesRepository, PropertiesService],

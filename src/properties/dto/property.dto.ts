@@ -143,10 +143,16 @@ export class UpdatePropertyDto {
 }
 
 export class AddPropertyImageDto {
-  @ApiProperty({ example: 'https://example.com/image.jpg' })
-  @IsUrl()
+  @ApiPropertyOptional({ example: 'https://example.com/image.jpg' })
+  @IsOptional()
+  @IsString()
   @MaxLength(500)
-  imageUrl!: string;
+  imageUrl?: string;
+
+  @ApiPropertyOptional({ example: '1ABC...XYZ' })
+  @IsOptional()
+  @IsString()
+  driveFileId?: string;
 
   @ApiPropertyOptional({ example: false })
   @IsOptional()

@@ -27,6 +27,9 @@ export class PropertyImage {
   @Column({ name: 'image_url', length: 500 })
   imageUrl!: string;
 
+  @Column({ name: 'drive_file_id', type: 'varchar', nullable: true, length: 255 })
+  driveFileId?: string | null;
+
   @Column({ name: 'is_cover', default: false })
   isCover!: boolean;
 

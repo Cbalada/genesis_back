@@ -16,10 +16,14 @@ import { UserRole, PropertyStatus } from '../common/enums';
 import { buildPaginatedResult, PaginatedResult } from '../common/utils/pagination.util';
 import { Property } from './entities/property.entity';
 import { PropertyImage } from './entities/property-image.entity';
+import { CloudinaryService } from '../upload/cloudinary.service';
 
 @Injectable()
 export class PropertiesService {
-  constructor(private readonly propertiesRepository: PropertiesRepository) {}
+  constructor(
+    private readonly propertiesRepository: PropertiesRepository,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   async create(dto: CreatePropertyDto, user: User): Promise<Property> {
     this.ensureHostOrAdmin(user);
@@ -76,16 +80,23 @@ export class PropertiesService {
     const property = await this.findOne(propertyId);
     this.ensureCanManageProperty(property, user);
 
+    const existingImages = property.images ?? [];
+    if (existingImages.length >= 20) {
+      throw new BadRequestException(
+        'Una propiedad no puede tener más de 20 imágenes.',
+      );
+    }
+
     if (dto.isCover) {
       await this.propertiesRepository.clearCoverImages(propertyId);
     }
 
-    const existingImages = property.images ?? [];
     const isFirstImage = existingImages.length === 0;
 
     return this.propertiesRepository.addImage({
       propertyId,
       imageUrl: dto.imageUrl,
+      driveFileId: dto.driveFileId,
       isCover: dto.isCover ?? isFirstImage,
     });
   }
@@ -101,6 +112,10 @@ export class PropertiesService {
     const image = await this.propertiesRepository.findImageById(imageId);
     if (!image || image.propertyId !== propertyId) {
       throw new NotFoundException('Image not found');
+    }
+
+    if (image.driveFileId) {
+      await this.cloudinaryService.deleteFile(image.driveFileId);
     }
 
     await this.propertiesRepository.removeImage(imageId);

@@ -1,15 +1,22 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
+  FileTypeValidator,
   Get,
+  MaxFileSizeValidator,
   Param,
+  ParseFilePipe,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -17,6 +24,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { PropertiesService } from './properties.service';
+import { CloudinaryService } from '../upload/cloudinary.service';
 import {
   CreatePropertyDto,
   UpdatePropertyDto,
@@ -32,7 +40,10 @@ import { User } from '../users/entities/user.entity';
 @ApiTags('Properties')
 @Controller('properties')
 export class PropertiesController {
-  constructor(private readonly propertiesService: PropertiesService) {}
+  constructor(
+    private readonly propertiesService: PropertiesService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Search and filter properties' })
@@ -50,7 +61,8 @@ export class PropertiesController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.HOST, UserRole.ADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create a new property (HOST/ADMIN)' })
+  @ApiOperation({ summary: 'Create new property (HOST or ADMIN)' })
+  @ApiResponse({ status: 201, description: 'Property created successfully' })
   create(@Body() dto: CreatePropertyDto, @CurrentUser() user: User) {
     return this.propertiesService.create(dto, user);
   }
@@ -82,12 +94,48 @@ export class PropertiesController {
   @Roles(UserRole.HOST, UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Add image to property' })
-  addImage(
+  @UseInterceptors(FileInterceptor('file'))
+  async addImage(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: AddPropertyImageDto,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }),
+          new FileTypeValidator({ fileType: /(jpg|jpeg|png|webp)$/i }),
+        ],
+        fileIsRequired: false,
+      }),
+    )
+    file: Express.Multer.File | undefined,
+    @Body('isCover') isCoverParam: any,
+    @Body('imageUrl') bodyImageUrl: string | undefined,
     @CurrentUser() user: User,
   ) {
-    return this.propertiesService.addImage(id, dto, user);
+    const isCover =
+      typeof isCoverParam === 'string'
+        ? isCoverParam.toLowerCase() === 'true'
+        : Boolean(isCoverParam);
+
+    let imageUrl = bodyImageUrl;
+    let driveFileId: string | undefined;
+
+    if (file) {
+      const uploadResult = await this.cloudinaryService.uploadFile(file);
+      imageUrl = uploadResult.imageUrl;
+      driveFileId = uploadResult.fileId;
+    }
+
+    if (!imageUrl) {
+      throw new BadRequestException(
+        'Debe adjuntar un archivo de imagen ("file") o proporcionar una URL ("imageUrl").',
+      );
+    }
+
+    return this.propertiesService.addImage(
+      id,
+      { imageUrl, driveFileId, isCover },
+      user,
+    );
   }
 
   @Delete(':id/images/:imageId')
