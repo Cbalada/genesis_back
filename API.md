@@ -48,6 +48,26 @@ Los listados paginados devuelven:
 }
 ```
 
+## Almacenamiento de imágenes
+
+La API de propiedades soporta carga real de imágenes para cada inmueble.
+
+- `POST /api/properties/:id/images`
+- El archivo se envía con `multipart/form-data`
+- Campo principal: `file`
+- Campo opcional: `isCover` (`true` / `false`)
+- Campo opcional: `imageUrl` para URLs externas
+- El backend procesa la imagen con Cloudinary y, si no está configurado, puede caer a almacenamiento local o Drive
+
+Variables de entorno relevantes:
+
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `PORT`
+- `CLOUDINARY_URL`
+- `GOOGLE_DRIVE_CLIENT_EMAIL`
+- `GOOGLE_DRIVE_PRIVATE_KEY`
+
 ## Enums
 
 - `UserRole`: `GUEST`, `HOST`, `ADMIN`
@@ -414,6 +434,23 @@ Sin cuerpo.
 
 Requiere token con rol `HOST` propietario o `ADMIN`.
 
+Esta ruta acepta archivos reales con `multipart/form-data`, no solo JSON. El backend valida:
+
+- tamaño máximo: 10 MB
+- tipos permitidos: `jpg`, `jpeg`, `png`, `webp`
+- máximo 20 imágenes por propiedad
+
+Ejemplo con `curl`:
+
+```bash
+curl -X POST "http://localhost:3000/api/properties/:id/images" \
+  -H "Authorization: Bearer <accessToken>" \
+  -F "file=@/ruta/imagen.jpg" \
+  -F "isCover=true"
+```
+
+También se puede enviar una URL externa si no hay archivo adjunto:
+
 ```json
 {
   "imageUrl": "https://example.com/property-cover.jpg",
@@ -427,7 +464,8 @@ Requiere token con rol `HOST` propietario o `ADMIN`.
 {
   "id": "123e4567-e89b-12d3-a456-426614174110",
   "propertyId": "123e4567-e89b-12d3-a456-426614174101",
-  "imageUrl": "https://example.com/property-cover.jpg",
+  "imageUrl": "https://res.cloudinary.com/.../image.jpg",
+  "driveFileId": "abc123",
   "isCover": true,
   "createdAt": "2026-08-24T16:00:00.000Z"
 }

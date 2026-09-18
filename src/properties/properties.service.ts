@@ -36,19 +36,24 @@ export class PropertiesService {
   }
 
   async findAll(query: PropertyQueryDto): Promise<PaginatedResult<Property>> {
-    if (query.checkIn && query.checkOut && query.checkIn >= query.checkOut) {
-      throw new BadRequestException('checkOut must be after checkIn');
-    }
-
-    const [data, total] =
-      await this.propertiesRepository.findWithFilters(query);
-    return buildPaginatedResult(
-      data,
-      total,
-      query.page ?? 1,
-      query.limit ?? 10,
-    );
+  if (query.checkIn && query.checkOut && query.checkIn >= query.checkOut) {
+    throw new BadRequestException('checkOut must be after checkIn');
   }
+
+  const filteredQuery = {
+    ...query,
+    status: PropertyStatus.ACTIVE,
+  };
+
+  const [data, total] =
+    await this.propertiesRepository.findWithFilters(filteredQuery);
+  return buildPaginatedResult(
+    data,
+    total,
+    query.page ?? 1,
+    query.limit ?? 10,
+  );
+}
 
   async findOne(id: string): Promise<Property> {
     const property = await this.propertiesRepository.findById(id);
